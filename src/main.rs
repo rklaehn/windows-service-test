@@ -1,16 +1,4 @@
-// Ping service example.
-//
-// You can install and uninstall this service using other example programs.
-// All commands mentioned below shall be executed in Command Prompt with Administrator privileges.
-//
-// Service installation: `install_service.exe`
-// Service uninstallation: `uninstall_service.exe`
-//
-// Start the service: `net start ping_service`
-// Stop the service: `net stop ping_service`
-//
-// Ping server sends a text message to local UDP port 1234 once a second.
-// You can verify that service works by running netcat, i.e: `ncat -ul 1234`.
+mod args;
 
 #[cfg(windows)]
 fn main() -> windows_service::Result<()> {
@@ -24,6 +12,8 @@ fn main() {
 
 #[cfg(windows)]
 mod ping_service {
+    use crate::args::Subcommand;
+    use clap::Parser;
     use std::{
         ffi::OsString,
         net::{IpAddr, SocketAddr, UdpSocket},
@@ -40,7 +30,10 @@ mod ping_service {
         service_dispatcher, Result,
     };
 
-    const SERVICE_NAME: &str = "ping_service";
+    use super::args::Args;
+
+    const SERVICE_NAME: &str = "munin_service";
+    const SERVICE_DESCRIPTION: &str = "Munin monitoring and control service";
     const SERVICE_TYPE: ServiceType = ServiceType::OWN_PROCESS;
 
     const LOOPBACK_ADDR: [u8; 4] = [127, 0, 0, 1];
@@ -51,8 +44,16 @@ mod ping_service {
         // Register generated `ffi_service_main` with the system and start the service, blocking
         // this thread until the service is stopped.
         let res = service_dispatcher::start(SERVICE_NAME, ffi_service_main);
-        if let Err(err) = res {
-            println!("running as a normal executable");
+        if let Err(_err) = res {
+            let args = Args::parse();
+            match args.subcommand {
+                Subcommand::Install(_install) => {
+                    install_service()?;
+                }
+                Subcommand::Uninstall(_uninstall) => {
+                    todo!();
+                }
+            }
         }
         Ok(())
     }
@@ -70,6 +71,39 @@ mod ping_service {
         if let Err(_e) = run_service() {
             // Handle the error, by logging or something.
         }
+    }
+
+    /// Installs yourself as a service
+    fn install_service() -> windows_service::Result<()> {
+        use std::ffi::OsString;
+        use windows_service::{
+            service::{
+                ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType, ServiceType,
+            },
+            service_manager::{ServiceManager, ServiceManagerAccess},
+        };
+
+        let manager_access = ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE;
+        let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
+
+        let service_binary_path = ::std::env::current_exe().unwrap();
+
+        let service_info = ServiceInfo {
+            name: OsString::from(SERVICE_NAME),
+            display_name: OsString::from(SERVICE_DESCRIPTION),
+            service_type: ServiceType::OWN_PROCESS,
+            start_type: ServiceStartType::OnDemand,
+            error_control: ServiceErrorControl::Normal,
+            executable_path: service_binary_path,
+            launch_arguments: vec![],
+            dependencies: vec![],
+            account_name: None, // run as System
+            account_password: None,
+        };
+        let service =
+            service_manager.create_service(&service_info, ServiceAccess::CHANGE_CONFIG)?;
+        service.set_description("Windows service example from windows-service-rs")?;
+        Ok(())
     }
 
     pub fn run_service() -> Result<()> {
