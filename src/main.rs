@@ -2,7 +2,7 @@ mod args;
 
 #[cfg(windows)]
 fn main() -> windows_service::Result<()> {
-    ping_service::run()
+    munin_service::run()
 }
 
 #[cfg(not(windows))]
@@ -11,7 +11,7 @@ fn main() {
 }
 
 #[cfg(windows)]
-mod ping_service {
+mod munin_service {
     use crate::args::Subcommand;
     use clap::Parser;
     use std::{
@@ -144,13 +144,13 @@ mod ping_service {
                 service_manager.open_service(SERVICE_NAME, ServiceAccess::QUERY_STATUS)
             {
                 if e.raw_os_error() == Some(ERROR_SERVICE_DOES_NOT_EXIST as i32) {
-                    println!("ping_service is deleted.");
+                    println!("{SERVICE_NAME} is deleted.");
                     return Ok(());
                 }
             }
             sleep(Duration::from_secs(1));
         }
-        println!("ping_service is marked for deletion.");
+        println!("{SERVICE_NAME} is marked for deletion.");
     
         Ok(())
     }
