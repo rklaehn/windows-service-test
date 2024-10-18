@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.20", features = ["derive"] }
 windows-service = "0.7.0"
+windows-sys = { version = "0.59.0", features = ["Win32"] }
