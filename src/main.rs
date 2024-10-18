@@ -189,41 +189,40 @@ mod munin_service {
 
     fn get_service_manager(
     ) -> windows_service::Result<windows_service::service_manager::ServiceManager> {
-        use windows_service::{
-            service::ServiceAccess,
-            service_manager::{ServiceManager, ServiceManagerAccess},
-        };
+        use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
         let manager_access = ServiceManagerAccess::CONNECT;
         let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
         Ok(service_manager)
     }
+    
+    fn get_service(name: &str, access: ServiceAccess) -> windows_service::Result<windows_service::service::Service> {
+        let service_manager = get_service_manager()?;
+        let service = service_manager.open_service(name, access)?;
+        Ok(service)
+    }
 
     fn pause() -> windows_service::Result<()> {
-        let service_manager = get_service_manager()?;
-        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
+        let service = get_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
         service.pause()?;
         Ok(())
     }
 
     fn resume() -> windows_service::Result<()> {
-        let service_manager = get_service_manager()?;
-        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
+        let service = get_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
         service.resume()?;
         Ok(())
     }
 
     fn start() -> windows_service::Result<()> {
-        let service_manager = get_service_manager()?;
-        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::START)?;
+        let service = get_service(SERVICE_NAME, ServiceAccess::START)?;
         let args: &[&OsStr] = &[];
         service.start(args)?;
         Ok(())
     }
 
     fn stop() -> windows_service::Result<()> {
-        let service_manager = get_service_manager()?;
-        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::STOP)?;
+        let service = get_service(SERVICE_NAME, ServiceAccess::STOP)?;
         service.stop()?;
         Ok(())
     }
