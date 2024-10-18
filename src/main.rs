@@ -23,8 +23,8 @@ mod munin_service {
     use windows_service::{
         define_windows_service,
         service::{
-            ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus,
-            ServiceType,
+            Service, ServiceAccess, ServiceControl, ServiceControlAccept, ServiceExitCode,
+            ServiceInfo, ServiceState, ServiceStatus, ServiceType,
         },
         service_control_handler::{self, ServiceControlHandlerResult},
         service_dispatcher, Result,
@@ -61,6 +61,12 @@ mod munin_service {
                 }
                 Subcommand::Resume(_resume) => {
                     resume()?;
+                }
+                Subcommand::Start(_start) => {
+                    start()?;
+                }
+                Subcommand::Stop(_stop) => {
+                    stop()?;
                 }
             }
         }
@@ -120,19 +126,20 @@ mod munin_service {
             thread::sleep,
             time::{Duration, Instant},
         };
-    
+
         use windows_service::{
             service::{ServiceAccess, ServiceState},
             service_manager::{ServiceManager, ServiceManagerAccess},
         };
         use windows_sys::Win32::Foundation::ERROR_SERVICE_DOES_NOT_EXIST;
-    
+
         let manager_access = ServiceManagerAccess::CONNECT;
         let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
-    
-        let service_access = ServiceAccess::QUERY_STATUS | ServiceAccess::STOP | ServiceAccess::DELETE;
+
+        let service_access =
+            ServiceAccess::QUERY_STATUS | ServiceAccess::STOP | ServiceAccess::DELETE;
         let service = service_manager.open_service(SERVICE_NAME, service_access)?;
-    
+
         // The service will be marked for deletion as long as this function call succeeds.
         // However, it will not be deleted from the database until it is stopped and all open handles to it are closed.
         service.delete()?;
@@ -143,7 +150,7 @@ mod munin_service {
         }
         // Explicitly close our open handle to the service. This is automatically called when `service` goes out of scope.
         drop(service);
-    
+
         // Win32 API does not give us a way to wait for service deletion.
         // To check if the service is deleted from the database, we have to poll it ourselves.
         let start = Instant::now();
@@ -160,7 +167,7 @@ mod munin_service {
             sleep(Duration::from_secs(1));
         }
         println!("{SERVICE_NAME} is marked for deletion.");
-    
+
         Ok(())
     }
 
@@ -169,48 +176,53 @@ mod munin_service {
             service::ServiceAccess,
             service_manager::{ServiceManager, ServiceManagerAccess},
         };
-    
+
         let manager_access = ServiceManagerAccess::CONNECT;
         let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
-    
+
         let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::QUERY_CONFIG)?;
-    
+
         let config = service.query_config()?;
         println!("{:#?}", config);
         Ok(())
     }
 
-    fn pause() -> windows_service::Result<()> {
+    fn get_service_manager() -> windows_service::Result<ServiceManager> {
         use windows_service::{
             service::ServiceAccess,
             service_manager::{ServiceManager, ServiceManagerAccess},
         };
-    
+
         let manager_access = ServiceManagerAccess::CONNECT;
         let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
-    
+        Ok(service_manager)
+    }
+
+    fn pause() -> windows_service::Result<()> {
+        let service_manager = get_service_manager()?;
         let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
-    
-        let paused_state = service.pause()?;
-        println!("{:?}", paused_state.current_state);
-    
+        service.pause()?;
         Ok(())
     }
 
     fn resume() -> windows_service::Result<()> {
-        use windows_service::{
-            service::ServiceAccess,
-            service_manager::{ServiceManager, ServiceManagerAccess},
-        };
-    
-        let manager_access = ServiceManagerAccess::CONNECT;
-        let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
-    
+        let service_manager = get_service_manager()?;
         let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
-    
-        let paused_state = service.resume()?;
-        println!("{:?}", paused_state.current_state);
-    
+        service.resume()?;
+        Ok(())
+    }
+
+    fn start() -> windows_service::Result<()> {
+        let service_manager = get_service_manager()?;
+        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::START)?;
+        service.start(&[])?;
+        Ok(())
+    }
+
+    fn stop() -> windows_service::Result<()> {
+        let service_manager = get_service_manager()?;
+        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::STOP)?;
+        service.stop()?;
         Ok(())
     }
 

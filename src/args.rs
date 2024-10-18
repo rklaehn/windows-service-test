@@ -13,6 +13,8 @@ pub enum Subcommand {
     QueryConfig(QueryConfig),
     Pause(Pause),
     Resume(Resume),
+    Start(Start),
+    Stop(Stop),
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -29,3 +31,9 @@ pub struct Pause {}
 
 #[derive(Debug, Clone, Parser)]
 pub struct Resume {}
+
+#[derive(Debug, Clone, Parser)]
+pub struct Start {}
+
+#[derive(Debug, Clone, Parser)]
+pub struct Stop {}
