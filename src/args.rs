@@ -11,6 +11,8 @@ pub enum Subcommand {
     Install(Install),
     Uninstall(Uninstall),
     QueryConfig(QueryConfig),
+    Pause(Pause),
+    Resume(Resume),
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -21,3 +23,9 @@ pub struct Uninstall {}
 
 #[derive(Debug, Clone, Parser)]
 pub struct QueryConfig {}
+
+#[derive(Debug, Clone, Parser)]
+pub struct Pause {}
+
+#[derive(Debug, Clone, Parser)]
+pub struct Resume {}

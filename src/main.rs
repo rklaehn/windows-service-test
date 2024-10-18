@@ -56,6 +56,12 @@ mod munin_service {
                 Subcommand::QueryConfig(_query_config) => {
                     query_config()?;
                 }
+                Subcommand::Pause(_pause) => {
+                    pause()?;
+                }
+                Subcommand::Resume(_resume) => {
+                    resume()?;
+                }
             }
         }
         Ok(())
@@ -171,6 +177,40 @@ mod munin_service {
     
         let config = service.query_config()?;
         println!("{:#?}", config);
+        Ok(())
+    }
+
+    fn pause() -> windows_service::Result<()> {
+        use windows_service::{
+            service::ServiceAccess,
+            service_manager::{ServiceManager, ServiceManagerAccess},
+        };
+    
+        let manager_access = ServiceManagerAccess::CONNECT;
+        let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
+    
+        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
+    
+        let paused_state = service.pause()?;
+        println!("{:?}", paused_state.current_state);
+    
+        Ok(())
+    }
+
+    fn resume() -> windows_service::Result<()> {
+        use windows_service::{
+            service::ServiceAccess,
+            service_manager::{ServiceManager, ServiceManagerAccess},
+        };
+    
+        let manager_access = ServiceManagerAccess::CONNECT;
+        let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
+    
+        let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::PAUSE_CONTINUE)?;
+    
+        let paused_state = service.resume()?;
+        println!("{:?}", paused_state.current_state);
+    
         Ok(())
     }
 
