@@ -15,7 +15,7 @@ mod munin_service {
     use crate::args::Subcommand;
     use clap::Parser;
     use std::{
-        ffi::OsString,
+        ffi::{OsStr, OsString},
         net::{IpAddr, SocketAddr, UdpSocket},
         sync::mpsc,
         time::Duration,
@@ -187,7 +187,8 @@ mod munin_service {
         Ok(())
     }
 
-    fn get_service_manager() -> windows_service::Result<ServiceManager> {
+    fn get_service_manager(
+    ) -> windows_service::Result<windows_service::service_manager::ServiceManager> {
         use windows_service::{
             service::ServiceAccess,
             service_manager::{ServiceManager, ServiceManagerAccess},
@@ -215,7 +216,8 @@ mod munin_service {
     fn start() -> windows_service::Result<()> {
         let service_manager = get_service_manager()?;
         let service = service_manager.open_service(SERVICE_NAME, ServiceAccess::START)?;
-        service.start(&[])?;
+        let args: &[&OsStr] = &[];
+        service.start(args)?;
         Ok(())
     }
 
