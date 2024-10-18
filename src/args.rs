@@ -10,6 +10,7 @@ pub struct Args {
 pub enum Subcommand {
     Install(Install),
     Uninstall(Uninstall),
+    QueryConfig(QueryConfig),
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -17,3 +18,6 @@ pub struct Install {}
 
 #[derive(Debug, Clone, Parser)]
 pub struct Uninstall {}
+
+#[derive(Debug, Clone, Parser)]
+pub struct QueryConfig {}
