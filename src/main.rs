@@ -23,12 +23,16 @@ mod munin_service {
     use windows_service::{
         define_windows_service,
         service::{
-            Service, ServiceAccess, ServiceControl, ServiceControlAccept, ServiceExitCode,
-            ServiceInfo, ServiceState, ServiceStatus, ServiceType,
+            ServiceAccess, ServiceControl, ServiceControlAccept, ServiceExitCode,
+            ServiceState, ServiceStatus, ServiceType,
         },
         service_control_handler::{self, ServiceControlHandlerResult},
         service_dispatcher, Result,
     };
+
+    async fn run_daemon(shutdown: tokio::sync::oneshot::Receiver<()>) {
+        shutdown.await.ok();
+    }
 
     use super::args::Args;
 
@@ -229,7 +233,7 @@ mod munin_service {
 
     pub fn run_service() -> Result<()> {
         // Create a channel to be able to poll a stop event from the service worker loop.
-        let (shutdown_tx, shutdown_rx) = mpsc::channel();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
 
         // Define system service event handler that will be receiving service events.
         let event_handler = move |control_event| -> ServiceControlHandlerResult {
@@ -240,14 +244,14 @@ mod munin_service {
 
                 // Handle stop
                 ServiceControl::Stop => {
-                    shutdown_tx.send(()).unwrap();
+                    shutdown_tx.send(()).ok();
                     ServiceControlHandlerResult::NoError
                 }
 
                 // treat the UserEvent as a stop request
                 ServiceControl::UserEvent(code) => {
                     if code.to_raw() == 130 {
-                        shutdown_tx.send(()).unwrap();
+                        shutdown_tx.send(()).ok();
                     }
                     ServiceControlHandlerResult::NoError
                 }
@@ -271,25 +275,8 @@ mod munin_service {
             process_id: None,
         })?;
 
-        // For demo purposes this service sends a UDP packet once a second.
-        let loopback_ip = IpAddr::from(LOOPBACK_ADDR);
-        let sender_addr = SocketAddr::new(loopback_ip, 0);
-        let receiver_addr = SocketAddr::new(loopback_ip, RECEIVER_PORT);
-        let msg = PING_MESSAGE.as_bytes();
-        let socket = UdpSocket::bind(sender_addr).unwrap();
-
-        loop {
-            let _ = socket.send_to(msg, receiver_addr);
-
-            // Poll shutdown event.
-            match shutdown_rx.recv_timeout(Duration::from_secs(1)) {
-                // Break the loop either upon stop or channel disconnect
-                Ok(_) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
-
-                // Continue work if no events were received within the timeout
-                Err(mpsc::RecvTimeoutError::Timeout) => (),
-            };
-        }
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(run_daemon(shutdown_rx));
 
         // Tell the system that service has stopped.
         status_handle.set_service_status(ServiceStatus {
