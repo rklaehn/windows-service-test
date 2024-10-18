@@ -16,22 +16,20 @@ mod munin_service {
     use clap::Parser;
     use std::{
         ffi::{OsStr, OsString},
-        net::{IpAddr, SocketAddr, UdpSocket},
-        sync::mpsc,
         time::Duration,
     };
     use windows_service::{
         define_windows_service,
         service::{
-            ServiceAccess, ServiceControl, ServiceControlAccept, ServiceExitCode,
-            ServiceState, ServiceStatus, ServiceType,
+            ServiceAccess, ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState,
+            ServiceStatus, ServiceType,
         },
         service_control_handler::{self, ServiceControlHandlerResult},
         service_dispatcher, Result,
     };
 
-    async fn run_daemon(shutdown: tokio::sync::oneshot::Receiver<()>) {
-        shutdown.await.ok();
+    async fn run_daemon(mut shutdown: tokio::sync::mpsc::UnboundedReceiver<()>) {
+        shutdown.recv().await;
     }
 
     use super::args::Args;
@@ -39,10 +37,6 @@ mod munin_service {
     const SERVICE_NAME: &str = "munin_service";
     const SERVICE_DESCRIPTION: &str = "Munin monitoring and control service";
     const SERVICE_TYPE: ServiceType = ServiceType::OWN_PROCESS;
-
-    const LOOPBACK_ADDR: [u8; 4] = [127, 0, 0, 1];
-    const RECEIVER_PORT: u16 = 1234;
-    const PING_MESSAGE: &str = "ping\n";
 
     pub fn run() -> Result<()> {
         // Register generated `ffi_service_main` with the system and start the service, blocking
@@ -199,8 +193,11 @@ mod munin_service {
         let service_manager = ServiceManager::local_computer(None::<&str>, manager_access)?;
         Ok(service_manager)
     }
-    
-    fn get_service(name: &str, access: ServiceAccess) -> windows_service::Result<windows_service::service::Service> {
+
+    fn get_service(
+        name: &str,
+        access: ServiceAccess,
+    ) -> windows_service::Result<windows_service::service::Service> {
         let service_manager = get_service_manager()?;
         let service = service_manager.open_service(name, access)?;
         Ok(service)
@@ -233,7 +230,7 @@ mod munin_service {
 
     pub fn run_service() -> Result<()> {
         // Create a channel to be able to poll a stop event from the service worker loop.
-        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::mpsc::unbounded_channel();
 
         // Define system service event handler that will be receiving service events.
         let event_handler = move |control_event| -> ServiceControlHandlerResult {
