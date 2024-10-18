@@ -50,7 +50,11 @@ mod ping_service {
     pub fn run() -> Result<()> {
         // Register generated `ffi_service_main` with the system and start the service, blocking
         // this thread until the service is stopped.
-        service_dispatcher::start(SERVICE_NAME, ffi_service_main)
+        let res = service_dispatcher::start(SERVICE_NAME, ffi_service_main);
+        if let Err(err) = res {
+            println!("running as a normal executable");
+        }
+        Ok(())
     }
 
     // Generate the windows service boilerplate.
